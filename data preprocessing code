@@ -1,0 +1,69 @@
+import pandas as pd
+import numpy as np
+import os
+
+# =========================
+# Load dataset
+# =========================
+df = pd.read_csv("combined_disaster_dataset.csv")
+
+# =========================
+# Remove duplicate rows
+# =========================
+df = df.drop_duplicates()
+
+# =========================
+# Handle missing numeric values
+# =========================
+numeric_cols = df.select_dtypes(include=np.number).columns
+for col in numeric_cols:
+    df[col] = df[col].fillna(df[col].mean())
+
+# =========================
+# Handle missing categorical values safely
+# =========================
+categorical_cols = df.select_dtypes(include='object').columns
+for col in categorical_cols:
+    if df[col].notna().any():
+        df[col] = df[col].fillna(df[col].mode()[0])
+    else:
+        df[col] = df[col].fillna("Unknown")
+
+# =========================
+# Strip whitespace from text
+# =========================
+for col in categorical_cols:
+    df[col] = df[col].astype(str).str.strip()
+
+# =========================
+# Clean column names
+# =========================
+df.columns = (
+    df.columns
+      .str.lower()
+      .str.strip()
+      .str.replace(" ", "_")
+)
+
+# =========================
+# Convert datetime columns (safe)
+# =========================
+for col in ['event_time', 'scraping_timestamp']:
+    if col in df.columns:
+        df[col] = pd.to_datetime(df[col], errors='coerce')
+
+# =========================
+# Save cleaned dataset (PermissionError safe)
+# =========================
+output_file = "cleaned_disaster_dataset_final.csv"
+
+# Remove file if it already exists (prevents permission conflict)
+if os.path.exists(output_file):
+    try:
+        os.remove(output_file)
+    except PermissionError:
+        output_file = "cleaned_disaster_dataset_final_v2.csv"
+
+df.to_csv(output_file, index=False)
+
+print(f"✅ Data cleaning completed successfully!\nSaved as: {output_file}")
